@@ -15,6 +15,8 @@ $ easy_install pip
 $ pip install pymysql
 $ pip install requests
 $ pip install openpyxl
+$ pip install pyyaml
+$ pip install tendo
 ```
 
 NOTE: You might need to `sudo` each command for permissions.
