@@ -62,6 +62,12 @@ class database:
         return cls.cursor.fetchone()
 
     @classmethod
+    def count_offline_allocation_by_sku(cls, sku):
+        sql = "SELECT sum(offline_allocation) FROM skus WHERE sku_id = '{0}';".format(sku)
+        cls.cursor.execute(sql)
+        return cls.cursor.fetchone()
+
+    @classmethod
     def get_all_failure_messages(cls):
         sql = "SELECT * FROM failure_messages WHERE status in ('open','retry_fail');"
         cls.cursor.execute(sql)

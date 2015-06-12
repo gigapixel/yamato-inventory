@@ -8,12 +8,9 @@ from database import *
 
 logpath = "/data/logs/ems/"
 
-pcms_api = "http://pcms.itruemart.com/api/v4/stock/increase"
-#pcms_api = "http://pcms.itruemart-dev.com/api/v4/stock/increase"
-
 class pcms_stock:
     @classmethod
-    def sync_total(cls):
+    def sync_total(cls,pcms_api):
         logfile = open(logpath + 'update_stock.txt', 'w')
         records = database.get_all_skus()
 
@@ -25,11 +22,15 @@ class pcms_stock:
 
             physical = database.count_items_by_sku(sku)
             virtual = database.count_virtual_stock_by_sku(sku)
+            offline_allocation = database.count_offline_allocation_by_sku(sku)
 
             total += int(physical[0])
 
             if virtual[0] is not None:
                 total += int(virtual[0])
+
+            if offline_allocation[0] is not None:
+                total -= int(offline_allocation[0])
 
             stock = cls.build_sku_stock_update(sku, total)
             payload = [stock]
@@ -71,11 +72,40 @@ class pcms_stock:
 
 
 if __name__ == "__main__":
-    database.create_connection(
-        host='myl.iems.com',
-        #host='myl.iems-dev.com',
-        user='ems_rw',
-        passwd='EE1m4$s4',
-        db='ems_db'
-    )
-    pcms_stock.sync_total()
+    if len(sys.argv) < 2:
+        print "Please specify pcms server url"
+    else:
+        print "Sync stock to %s" % sys.argv[1]
+
+        host=''
+        user=''
+        passwd=''
+        db_name=''
+
+        if sys.argv[1] == "http://pcms.alpha.itruemart.com/api/v4/stock/increase": # FOR DIGITAL OCEAN
+            host='localhost'
+            user='root'
+            passwd='1q2w3e4r'
+            db_name='ops'
+        elif sys.argv[1] == "http://pcms.alpha.itruemart-dev.com/api/v4/stock/increase": # FOR Staging
+            host='localhost'
+            user='ems_rw'
+            passwd='1q2w3e4r'
+            db_name='ems_db'
+        elif sys.argv[1] == "http://pcms.itruemart.com/api/v4/stock/increase": # FOR PROD
+            host='myl.iems.com'
+            user='ems_rw'
+            passwd='EE1m4$s4'
+            db_name='ems_db'
+        else :
+            print "Invalid URL input"
+            exit(0)
+
+        database.create_connection(
+            host=host,
+            user=user,
+            passwd=passwd,
+            db=db_name
+        )
+
+        pcms_stock.sync_total(sys.argv[1])

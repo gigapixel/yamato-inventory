@@ -13,13 +13,6 @@ import sys, traceback
 from database import *
 from tendo import singleton
 
-pcms_api_prefix = "http://pcms.itruemart.com/api/v4/"
-pcms_api_increase = pcms_api_prefix + "stock/increase"
-pcms_api_decrease = pcms_api_prefix + "stock/decrease"
-pcms_api_sku_create = pcms_api_prefix + "sku/create"
-pcms_api_sku_update = pcms_api_prefix + "sku/update"
-pcms_api_order_update_status = pcms_api_prefix + "orders/update-status"
-
 def setup_logging(default_path='logging.yaml'):
     #Loading logging config
     with open(default_path, 'rt') as f:
@@ -38,11 +31,14 @@ class failure_messages_recovery:
             update_row['note'] = 'recovery stock synchronization'
             mat_count = mat_count = database.count_virtual_stock_by_sku(sku)[0]
             physical_count = database.count_items_by_sku(sku)[0]
+            offline_allocation = database.count_offline_allocation_by_sku(sku)[0]
             if mat_count is None:
                 mat_count = '0'
             if physical_count is None:
                 physical_count = '0'
-            update_row['total'] = int(mat_count) + int(physical_count)
+            if offline_allocation is None:
+                offline_allocation = '0'
+            update_row['total'] = (int(mat_count) + int(physical_count)) - int(offline_allocation)
             response_array.append(update_row)
         return json.dumps(response_array)
 
@@ -130,17 +126,53 @@ class failure_messages_recovery:
                 database.mark_message_failed_after_retry(record[0])
                 exit()
 
-
 if __name__ == "__main__":
-    logging_config =  os.path.dirname(os.path.realpath(__file__)) + "/logging.yaml"
-    me = singleton.SingleInstance()
-    database.create_connection(
-        host='myl.iems.com',
-        user='ems_rw',
-        passwd='EE1m4$s4',
-        db='ems_db'
-    )
+    if len(sys.argv) < 2:
+        print "Please specify pcms server url"
+    else:
+        print "Failure messages recovery to %s" % sys.argv[1]
 
-    setup_logging(logging_config)
-    main_logger = logging.getLogger('main_module')
-    failure_messages_recovery.recover()
+        host=''
+        user=''
+        passwd=''
+        db_name=''
+
+        if sys.argv[1] == "http://pcms.alpha.itruemart.com/api/v4/": # FOR DIGITAL OCEAN
+            host='localhost'
+            user='root'
+            passwd='1q2w3e4r'
+            db_name='ops'
+        elif sys.argv[1] == "http://pcms.alpha.itruemart-dev.com/api/v4/": # FOR Staging
+            host='localhost'
+            user='ems_rw'
+            passwd='1q2w3e4r'
+            db_name='ems_db'
+        elif sys.argv[1] == "http://pcms.itruemart.com/api/v4/": # FOR PROD
+            host='myl.iems.com'
+            user='ems_rw'
+            passwd='EE1m4$s4'
+            db_name='ems_db'
+        else :
+            print "Invalid URL input"
+            exit(0)
+
+        pcms_api_prefix = sys.argv[1]
+        pcms_api_increase = pcms_api_prefix + "stock/increase"
+        pcms_api_decrease = pcms_api_prefix + "stock/decrease"
+        pcms_api_sku_create = pcms_api_prefix + "sku/create"
+        pcms_api_sku_update = pcms_api_prefix + "sku/update"
+        pcms_api_order_update_status = pcms_api_prefix + "orders/update-status"
+
+        logging_config =  os.path.dirname(os.path.realpath(__file__)) + "/logging.yaml"
+        me = singleton.SingleInstance()
+
+        database.create_connection(
+            host=host,
+            user=user,
+            passwd=passwd,
+            db=db_name
+        )
+
+        setup_logging(logging_config)
+        main_logger = logging.getLogger('main_module')
+        failure_messages_recovery.recover()
