@@ -143,7 +143,7 @@ if __name__ == "__main__":
             passwd='1q2w3e4r'
             db_name='ops'
         elif sys.argv[1] == "http://pcms.alpha.itruemart-dev.com/api/v4/": # FOR Staging
-            host='localhost'
+            host='myl.iems-dev.com'
             user='ems_rw'
             passwd='1q2w3e4r'
             db_name='ems_db'
